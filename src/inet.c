@@ -387,7 +387,6 @@ static conn_t *init_conn(pool *p, int fd, const pr_netaddr_t *bind_addr,
     if (pr_netaddr_use_ipv6() &&
         addr_family == AF_INET6) {
       int level = ipv6_proto;
-      int off;
       socklen_t len = sizeof(off);
 
       /* If creating a wildcard socket IPv6 socket, make sure that it
