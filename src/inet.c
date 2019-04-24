@@ -2,7 +2,7 @@
  * ProFTPD - FTP server daemon
  * Copyright (c) 1997, 1998 Public Flood Software
  * Copyright (c) 1999, 2000 MacGyver aka Habeeb J. Dihu <macgyver@tos.net>
- * Copyright (c) 2001-2018 The ProFTPD Project team
+ * Copyright (c) 2001-2019 The ProFTPD Project team
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -190,14 +190,14 @@ static conn_t *init_conn(pool *p, int fd, const pr_netaddr_t *bind_addr,
   conn_t *c;
   pr_netaddr_t na;
   int addr_family;
-  int res = 0, one = 1, hold_errno;
+  int res = 0, on = 1, off = 0, hold_errno;
 
   if (p == NULL) {
     errno = inet_errno = EINVAL;
     return NULL;
   }
 
-  if (!inet_pool) {
+  if (inet_pool == NULL) {
     inet_pool = make_sub_pool(permanent_pool);
     pr_pool_tag(inet_pool, "Inet Pool");
   }
@@ -214,7 +214,7 @@ static conn_t *init_conn(pool *p, int fd, const pr_netaddr_t *bind_addr,
   c->local_port = port;
   c->rfd = c->wfd = -1;
 
-  if (bind_addr) {
+  if (bind_addr != NULL) {
     addr_family = pr_netaddr_get_family(bind_addr);
 
   } else if (inet_family) {
@@ -316,8 +316,8 @@ static conn_t *init_conn(pool *p, int fd, const pr_netaddr_t *bind_addr,
     }
 
     /* Allow address reuse. */
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void *) &one,
-        sizeof(one)) < 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void *) &on,
+        sizeof(on)) < 0) {
       pr_log_pri(PR_LOG_NOTICE, "error setting SO_REUSEADDR: %s",
         strerror(errno));
     }
@@ -329,25 +329,35 @@ static conn_t *init_conn(pool *p, int fd, const pr_netaddr_t *bind_addr,
      * and madness (see Issue #622).
      */
     if (!is_master) {
-      if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, (void *) &one,
-          sizeof(one)) < 0) {
+      if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, (void *) &on,
+          sizeof(on)) < 0) {
         pr_log_pri(PR_LOG_NOTICE, "error setting SO_REUSEPORT: %s",
           strerror(errno));
       }
     }
 #endif /* SO_REUSEPORT */
 
-    /* Allow socket keep-alive messages. */
-    if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *) &one,
-        sizeof(one)) < 0) {
+    /* Allow socket keepalive messages by default.  However, if
+     * "SocketOptions keepalive off" is in effect, then explicitly
+     * disable keepalives.
+     */
+    if (main_server->tcp_keepalive->keepalive_enabled == FALSE) {
+      res = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *) &off,
+        sizeof(off));
+
+    } else {
+      res = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *) &on, sizeof(on));
+    }
+
+    if (res < 0) {
       pr_log_pri(PR_LOG_NOTICE, "error setting SO_KEEPALIVE: %s",
         strerror(errno));
     }
 
 #if defined(IP_FREEBIND)
     /* Allow binding to an as-yet-nonexistent address. */
-    if (setsockopt(fd, SOL_IP, IP_FREEBIND, (void *) &one,
-        sizeof(one)) < 0) {
+    if (setsockopt(fd, SOL_IP, IP_FREEBIND, (void *) &on,
+        sizeof(on)) < 0) {
       if (errno != ENOSYS) {
         pr_log_pri(PR_LOG_INFO, "error setting IP_FREEBIND: %s",
           strerror(errno));
