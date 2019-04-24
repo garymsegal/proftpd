@@ -341,7 +341,9 @@ static conn_t *init_conn(pool *p, int fd, const pr_netaddr_t *bind_addr,
      * "SocketOptions keepalive off" is in effect, then explicitly
      * disable keepalives.
      */
-    if (main_server->tcp_keepalive->keepalive_enabled == FALSE) {
+    if (main_server != NULL &&
+        main_server->tcp_keepalive != NULL &&
+        main_server->tcp_keepalive->keepalive_enabled == FALSE) {
       res = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *) &off,
         sizeof(off));
 
