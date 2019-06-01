@@ -23,7 +23,7 @@
  */
 
 /* Children management code */
-/* random comment */
+/* random comment  */
 
 #include "conf.h"
 
